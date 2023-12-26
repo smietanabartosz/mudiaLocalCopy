@@ -1,0 +1,16 @@
+# Generic ignores
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+.gdb_history
+
+# Project specific ignores
+*.pyc
+build
+*.o
+example
+.mypy_cache/
+a.out

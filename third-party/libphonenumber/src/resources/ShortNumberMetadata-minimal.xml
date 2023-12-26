@@ -1,0 +1,188 @@
+<!-- Copyright (C) 2013 The Libphonenumber Authors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+
+     @author: David Yonge-Mallo
+     @author: Shaopeng Jia
+     @author: Lara Rennie
+
+     Metadata on Short Number patterns, containing information for classifying short numbers by
+     type and cost. Note that this is used in addition to the information provided by the
+     PhoneNumberMetadata.xml file - patterns should not be duplicated between these files.
+
+     Emergency numbers Wikipedia source:
+     http://en.wikipedia.org/wiki/Emergency_telephone_number
+-->
+
+<!DOCTYPE phoneNumberMetadata [
+    <!ELEMENT phoneNumberMetadata (territories)>
+    <!ELEMENT territories (territory+)>
+    <!ELEMENT territory (generalDesc, shortCode, tollFree?, standardRate?, premiumRate?,
+        carrierSpecific?, emergency?, expandedEmergency?, smsServices?)>
+    <!ELEMENT generalDesc (nationalNumberPattern)>
+    <!ELEMENT shortCode (possibleLengths, exampleNumber, nationalNumberPattern)>
+
+    <!-- The following cost categories are mutually exclusive. Emergency numbers are implicitly
+         considered toll free and do not need to be repeated here. Otherwise, a short number which
+         does not fall into one of these categories is considered to have unknown cost. -->
+    <!ELEMENT tollFree (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT standardRate (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT premiumRate (possibleLengths, exampleNumber, nationalNumberPattern)>
+
+    <!-- The following tags are currently used to classify numbers as a particular type and need not
+         be mutually exclusive. The names are provisionary only and may be revised in the future.
+         -->
+    <!-- carrierSpecific numbers are numbers for which the endpoint can vary by carrier. The number
+         may connect to a different endpoint on another carrier, or may not work at all. -->
+    <!ELEMENT carrierSpecific (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT emergency (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!-- Emergency numbers beyond the traditional fire-police-ambulance trio. This includes things
+         like rescue helicopters and help-lines that include "emergency" in their description. -->
+    <!ELEMENT expandedEmergency (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!-- Used for numbers where the primary or only intended usage is to receive and/or send text
+         messages (SMSs). -->
+    <!ELEMENT smsServices (possibleLengths, exampleNumber, nationalNumberPattern)>
+
+    <!ELEMENT nationalNumberPattern (#PCDATA)>
+    <!ELEMENT exampleNumber (#PCDATA)>
+    <!ELEMENT possibleLengths EMPTY>
+
+    <!ATTLIST territory id CDATA #REQUIRED>
+    <!ATTLIST possibleLengths national CDATA #REQUIRED>
+    <!ATTLIST possibleLengths localOnly CDATA #IMPLIED>
+]>
+
+<phoneNumberMetadata>
+  <territories>
+    <!-- Germany (DE) -->
+    <!-- http://www.itu.int/oth/T0202000051/en -->
+    <!-- http://en.wikipedia.org/wiki/Telephone_numbers_in_germany -->
+    <territory id="DE">
+      <generalDesc>
+        <nationalNumberPattern>
+          1\d\d(?:
+            \d{3}
+          )?
+        </nationalNumberPattern>
+      </generalDesc>
+      <shortCode>
+        <possibleLengths national="3,6"/>
+        <exampleNumber>110</exampleNumber>
+        <nationalNumberPattern>
+          11(?:
+            [025]|
+            6(?:
+              00[06]|
+              1(?:
+                1[167]|
+                23
+              )
+            )
+          )
+        </nationalNumberPattern>
+      </shortCode>
+      <tollFree>
+        <possibleLengths national="3,6"/>
+        <exampleNumber>110</exampleNumber>
+        <nationalNumberPattern>
+          11(?:
+            [02]|
+            6\d{3}
+          )
+        </nationalNumberPattern>
+      </tollFree>
+      <emergency>
+        <possibleLengths national="3"/>
+        <exampleNumber>110</exampleNumber>
+        <nationalNumberPattern>11[02]</nationalNumberPattern>
+      </emergency>
+      <expandedEmergency>
+        <possibleLengths national="6"/>
+        <exampleNumber>116000</exampleNumber>
+        <nationalNumberPattern>116\d{3}</nationalNumberPattern>
+      </expandedEmergency>
+    </territory>
+
+    <!-- Poland (PL) -->
+    <!-- http://en.wikipedia.org/wiki/%2B48 -->
+    <!-- http://www.itu.int/oth/T02020000A8/en -->
+    <!-- http://www.uke.gov.pl/tablice/home.do?execution=e1s1 -->
+    <territory id="PL">
+      <generalDesc>
+        <nationalNumberPattern>
+          [19]\d\d(?:
+            \d{2,3}
+          )?
+        </nationalNumberPattern>
+      </generalDesc>
+      <!-- 19XXX short codes are mentioned as customer service numbers in the ITU doc. These are
+           probably the same numbers as the verified "+48 <area-code> 19XXX" numbers. We follow
+           the ITU doc here, but it could be wrong (we may need to remove 19XXX here or we may
+           need to move it to PhoneNumberMetadata.xml (e.g. with possibleLengths localOnly=5). -->
+      <shortCode>
+        <possibleLengths national="3,5,6"/>
+        <exampleNumber>112</exampleNumber>
+        <nationalNumberPattern>
+          1(?:
+            1(?:
+              2|
+              61(?:
+                11|
+                23
+              )|
+              891[23]
+            )|
+            9\d{3}
+          )|
+          9(?:
+            8[4-7]|
+            9[1-9]
+          )|
+          11[68]000
+        </nationalNumberPattern>
+      </shortCode>
+      <!-- All 116XXX, "European harmonized services of social" value are toll-free.
+           See: https://ec.europa.eu/digital-single-market/116-helplines. -->
+      <tollFree>
+        <possibleLengths national="3,6"/>
+        <exampleNumber>112</exampleNumber>
+        <nationalNumberPattern>
+          11(?:
+            2|
+            6\d{3}
+          )|
+          99[7-9]
+        </nationalNumberPattern>
+      </tollFree>
+      <emergency>
+        <possibleLengths national="3"/>
+        <exampleNumber>112</exampleNumber>
+        <nationalNumberPattern>
+          112|
+          99[7-9]
+        </nationalNumberPattern>
+      </emergency>
+      <expandedEmergency>
+        <possibleLengths national="3,6"/>
+        <exampleNumber>984</exampleNumber>
+        <nationalNumberPattern>
+          116\d{3}|
+          9(?:
+            8[4-6]|
+            9[56]
+          )
+        </nationalNumberPattern>
+      </expandedEmergency>
+    </territory>
+  </territories>
+</phoneNumberMetadata>

@@ -1,0 +1,781 @@
+<!-- Copyright (C) 2009 The Libphonenumber Authors
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+
+     @author: Shaopeng Jia
+
+     Metadata on Phone Number Plan and formatting rules
+     Note: Territories are in alphabetical order by their IDs, which are based on CLDR
+           two-letter region codes (or are set to "001" for non-geographical entities, which
+           represents "World" in the UN M.49 standard). The country names in the comments are the
+           official short names in English according to CLDR.
+
+     For more information on what each element represents, see
+     resources/phonemetadata.proto
+
+     Note that if you want to add validation metadata, the generalDesc nationalNumberPattern must be
+     provided. If this is missing, then the country will be considered to have no more specific
+     phone-number type metadata (fixedLine, mobile etc) and hence only basic validation rules
+     (numbers should be between 3 and 15 digits long) will be applied.
+
+     If adding an element for a non-geographical entity, please add an example number element to the
+     general description.
+
+     Country code, international and national prefix information main source:
+     http://www.itu.int/pub/T-SP-E.164C-2011
+
+     Known omissions:
+     * French Southern Territories (id="TF" countryCode="262")
+       This is not covered due to lack of information about its numbering plan. It has 140
+       temporary inhabitants.
+
+     * Pitcairn Island (id="PN")
+       This is not supported since evidence seems to be that the 50 inhabitants use satellite
+       phones.
+
+     See also:
+       https://github.com/google/libphonenumber/blob/master/FAQ.md#unsupported
+     -->
+
+<!DOCTYPE phoneNumberMetadata [
+    <!ELEMENT phoneNumberMetadata (territories)>
+    <!ELEMENT territories (territory+)>
+    <!ELEMENT territory (references?, availableFormats?, generalDesc, noInternationalDialling?,
+        fixedLine?, mobile?, pager?, tollFree?, premiumRate?,
+        sharedCost?, personalNumber?, voip?, uan?, voicemail?)>
+    <!ELEMENT references (sourceUrl+)>
+    <!ELEMENT generalDesc (nationalNumberPattern)>
+    <!ELEMENT noInternationalDialling (possibleLengths, nationalNumberPattern)>
+    <!ELEMENT fixedLine (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT mobile (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT pager (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT tollFree (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT premiumRate (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT sharedCost (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT personalNumber (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT voip (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT uan (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT voicemail (possibleLengths, exampleNumber, nationalNumberPattern)>
+    <!ELEMENT sourceUrl (#PCDATA)>
+    <!ELEMENT availableFormats (numberFormat+)>
+    <!ELEMENT nationalNumberPattern (#PCDATA)>
+    <!ELEMENT exampleNumber (#PCDATA)>
+    <!ELEMENT numberFormat (leadingDigits*, format, intlFormat*)>
+    <!ELEMENT format (#PCDATA)>
+    <!ELEMENT intlFormat (#PCDATA)>
+    <!ELEMENT leadingDigits (#PCDATA)>
+    <!ELEMENT possibleLengths EMPTY>
+
+    <!ATTLIST territory id CDATA #REQUIRED>
+    <!ATTLIST territory countryCode CDATA #REQUIRED>
+    <!ATTLIST territory mainCountryForCode (true) #IMPLIED>
+    <!ATTLIST territory leadingDigits CDATA #IMPLIED>
+    <!ATTLIST territory preferredInternationalPrefix CDATA #IMPLIED>
+    <!ATTLIST territory internationalPrefix CDATA #IMPLIED>
+    <!ATTLIST territory nationalPrefix CDATA #IMPLIED>
+    <!ATTLIST territory nationalPrefixForParsing CDATA #IMPLIED>
+    <!ATTLIST territory nationalPrefixTransformRule CDATA #IMPLIED>
+    <!ATTLIST territory preferredExtnPrefix CDATA #IMPLIED>
+    <!ATTLIST territory nationalPrefixFormattingRule CDATA #IMPLIED>
+    <!ATTLIST territory nationalPrefixOptionalWhenFormatting (true) #IMPLIED>
+    <!ATTLIST territory carrierCodeFormattingRule CDATA #IMPLIED>
+    <!ATTLIST territory mobileNumberPortableRegion (true) #IMPLIED>
+    <!ATTLIST possibleLengths national CDATA #REQUIRED>
+    <!ATTLIST possibleLengths localOnly CDATA #IMPLIED>
+    <!ATTLIST numberFormat nationalPrefixFormattingRule CDATA #IMPLIED>
+    <!ATTLIST numberFormat nationalPrefixOptionalWhenFormatting (true) #IMPLIED>
+    <!ATTLIST numberFormat carrierCodeFormattingRule CDATA #IMPLIED>
+    <!ATTLIST numberFormat pattern CDATA #REQUIRED>
+]>
+
+<phoneNumberMetadata>
+  <territories>
+    <!-- Germany (DE) -->
+    <!-- http://www.itu.int/oth/T0202000051/en -->
+    <!-- http://en.wikipedia.org/wiki/Telephone_numbers_in_germany -->
+    <!-- Due to the high complexity of ranges in the German numbering scheme, the regular
+         expressions here have been automatically simplified to reduce size. This means that
+         in some cases there may be false positives (especially in fixed line ranges), but since
+         German ranges differ so much by length anyway, false positives are already common. -->
+    <territory id="DE" countryCode="49" internationalPrefix="00" nationalPrefix="0"
+               mobileNumberPortableRegion="true">
+      <availableFormats>
+        <!-- Fixed line, 2 digit area codes. -->
+        <numberFormat pattern="(\d{2})(\d{3,13})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>
+            3[02]|
+            40|
+            [68]9
+          </leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Fixed line, 3 digit area codes. -->
+        <numberFormat pattern="(\d{3})(\d{3,12})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>
+            2(?:
+              0[1-389]|
+              1[124]|
+              2[18]|
+              3[14]
+            )|
+            3(?:
+              [35-9][15]|
+              4[015]
+            )|
+            906|
+            (?:
+              2[4-9]|
+              4[2-9]|
+              [579][1-9]|
+              [68][1-8]
+            )1
+          </leadingDigits>
+          <leadingDigits>
+            2(?:
+              0[1-389]|
+              12[0-8]
+            )|
+            3(?:
+              [35-9][15]|
+              4[015]
+            )|
+            906|
+            2(?:
+              [13][14]|
+              2[18]
+            )|
+            (?:
+              2[4-9]|
+              4[2-9]|
+              [579][1-9]|
+              [68][1-8]
+            )1
+          </leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Fixed line, 4 digit area codes. Only area code 5361 has two digit subscriber numbers. -->
+        <numberFormat pattern="(\d{4})(\d{2,11})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>
+            [24-6]|
+            3(?:
+              [3569][02-46-9]|
+              4[2-4679]|
+              7[2-467]|
+              8[2-46-8]
+            )|
+            70[2-8]|
+            8(?:
+              0[2-9]|
+              [1-8]
+            )|
+            90[7-9]|
+            [79][1-9]
+          </leadingDigits>
+          <leadingDigits>
+            [24-6]|
+            3(?:
+              3(?:
+                0[1-467]|
+                2[127-9]|
+                3[124578]|
+                7[1257-9]|
+                8[1256]|
+                9[145]
+              )|
+              4(?:
+                2[135]|
+                4[13578]|
+                9[1346]
+              )|
+              5(?:
+                0[14]|
+                2[1-3589]|
+                6[1-4]|
+                7[13468]|
+                8[13568]
+              )|
+              6(?:
+                2[1-489]|
+                3[124-6]|
+                6[13]|
+                7[12579]|
+                8[1-356]|
+                9[135]
+              )|
+              7(?:
+                2[1-7]|
+                4[145]|
+                6[1-5]|
+                7[1-4]
+              )|
+              8(?:
+                21|
+                3[1468]|
+                6|
+                7[1467]|
+                8[136]
+              )|
+              9(?:
+                0[12479]|
+                2[1358]|
+                4[134679]|
+                6[1-9]|
+                7[136]|
+                8[147]|
+                9[1468]
+              )
+            )|
+            70[2-8]|
+            8(?:
+              0[2-9]|
+              [1-8]
+            )|
+            90[7-9]|
+            [79][1-9]|
+            3[68]4[1347]|
+            3(?:
+              47|
+              60
+            )[1356]|
+            3(?:
+              3[46]|
+              46|
+              5[49]
+            )[1246]|
+            3[4579]3[1357]
+          </leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Short shared cost numbers. -->
+        <numberFormat pattern="(\d{3})(\d{4})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>138</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Fixed line, 5 digit area codes. -->
+        <numberFormat pattern="(\d{5})(\d{2,10})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>3</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- UAN (181) numbers. -->
+        <numberFormat pattern="(\d{3})(\d{5,11})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>181</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Premium rate and shared cost numbers. -->
+        <numberFormat pattern="(\d{3})(\d)(\d{4,10})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>
+            1(?:
+              3|
+              80
+            )|
+            9
+          </leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- Mobile/pager format (from ITU document). Actual usage varies. -->
+        <numberFormat pattern="(\d{3})(\d{7,8})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>1[67]</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Toll free (800) numbers. -->
+        <numberFormat pattern="(\d{3})(\d{7,12})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>8</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Where we have seen prefixes in use for the IVPN/User Group numbers, we format it the
+             way it is generally written. For other prefixes, we fall back to using a three-digit
+             prefix since we have currently no more information to allow us to format these more
+             precisely. -->
+        <numberFormat pattern="(\d{5})(\d{6})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>185</leadingDigits>
+          <leadingDigits>1850</leadingDigits>
+          <leadingDigits>18500</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Personal numbers. -->
+        <numberFormat pattern="(\d{3})(\d{4})(\d{4})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>7</leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- Various UAN numbers. -->
+        <numberFormat pattern="(\d{4})(\d{7})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>18[68]</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Some mobile numbers (carrier services etc..) have a 6 digit NSN and need to be formatted
+             with 5 leading digits (as opposed to the 4.7 format).
+             These are all in the ranges 150, 155, 156 and 158. -->
+        <numberFormat pattern="(\d{5})(\d{6})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>15[0568]</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Mobile format for 15x mobile numbers. -->
+        <numberFormat pattern="(\d{4})(\d{7})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>15[1279]</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Various UAN numbers. -->
+        <numberFormat pattern="(\d{3})(\d{8})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>18</leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- Voicemail. -->
+        <numberFormat pattern="(\d{3})(\d{2})(\d{7,8})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>
+            1(?:
+              6[023]|
+              7
+            )
+          </leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- Voicemail. -->
+        <numberFormat pattern="(\d{4})(\d{2})(\d{7})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>15[279]</leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- Voicemail. -->
+        <numberFormat pattern="(\d{3})(\d{2})(\d{8})" nationalPrefixFormattingRule="$NP$FG">
+          <leadingDigits>15</leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+      </availableFormats>
+      <generalDesc>
+        <nationalNumberPattern>
+          [2579]\d{5,14}|
+          49(?:
+            [05]\d{10}|
+            [46][1-8]\d{4,9}
+          )|
+          49(?:
+            [0-25]\d|
+            3[1-689]|
+            7[1-7]
+          )\d{4,8}|
+          49(?:
+            [0-2579]\d|
+            [34][1-9]|
+            6[0-8]
+          )\d{3}|
+          49\d{3,4}|
+          (?:
+            1|
+            [368]\d|
+            4[0-8]
+          )\d{3,13}
+        </nationalNumberPattern>
+      </generalDesc>
+      <!-- The German ITU numbering plan gives overly simplistic minimum/maximum
+           lengths for number ranges. This would (if taken literally) result in 1 or 2 length
+           subscriber numbers. However, a contact of the German numbering authority
+           confirmed that subscriber numbers can never be shorter than 2-digit and total
+           length can not be less than 6 digits. -->
+      <!-- Maximum lengths of German numbers are generally undefined, since any subscriber
+           number can connect to a private exchange (PABX), which can consume additionally
+           dialled digits (e.g. for calling individual rooms in a hotel directly). This means that in
+           almost all cases the maximum length of a fixed line range is 15 (the maximum defined
+           by E.164). However there is one very special exception to this; the "49" area code.
+           This needs to be shorter to avoid range lengths overlapping which would otherwise
+           cause issues in parsing (since 49 is both an area code and the country calling code). -->
+      <fixedLine>
+        <possibleLengths national="[5-15]" localOnly="[2-4]"/>
+        <exampleNumber>30123456</exampleNumber>
+        <nationalNumberPattern>
+          (?:
+            32|
+            49[4-6]\d
+          )\d{9}|
+          49[0-7]\d{3,9}|
+          (?:
+            [34]0|
+            [68]9
+          )\d{3,13}|
+          (?:
+            2(?:
+              0[1-689]|
+              [1-3569]\d|
+              4[0-8]|
+              7[1-7]|
+              8[0-7]
+            )|
+            3(?:
+              [3569]\d|
+              4[0-79]|
+              7[1-7]|
+              8[1-8]
+            )|
+            4(?:
+              1[02-9]|
+              [2-48]\d|
+              5[0-6]|
+              6[0-8]|
+              7[0-79]
+            )|
+            5(?:
+              0[2-8]|
+              [124-6]\d|
+              [38][0-8]|
+              [79][0-7]
+            )|
+            6(?:
+              0[02-9]|
+              [1-358]\d|
+              [47][0-8]|
+              6[1-9]
+            )|
+            7(?:
+              0[2-8]|
+              1[1-9]|
+              [27][0-7]|
+              3\d|
+              [4-6][0-8]|
+              8[0-5]|
+              9[013-7]
+            )|
+            8(?:
+              0[2-9]|
+              1[0-79]|
+              2\d|
+              3[0-46-9]|
+              4[0-6]|
+              5[013-9]|
+              6[1-8]|
+              7[0-8]|
+              8[0-24-6]
+            )|
+            9(?:
+              0[6-9]|
+              [1-4]\d|
+              [589][0-7]|
+              6[0-8]|
+              7[0-467]
+            )
+          )\d{3,12}
+        </nationalNumberPattern>
+      </fixedLine>
+      <!-- According to
+           http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/BNetzA/Sachgebiete/Telekommunikation/Regulierung/Nummernverwaltung/Mobilfunkdienste/NummernplanMobileDienstepdf.pdf?__blob=publicationFile
+           numbers beginning with 162, 163 and 17 can all be 10 or 11 digits long.
+           The ranges 15[056] have been removed from the ITU doc, but information found online
+           indicates that they may still be working.
+           Note corresponding voicemail prefixes should be updated as well if new prefixes are
+           added to this section. -->
+      <mobile>
+        <possibleLengths national="10,11"/>
+        <exampleNumber>15123456789</exampleNumber>
+        <nationalNumberPattern>
+          15[0-25-9]\d{8}|
+          1(?:
+            6[023]|
+            7\d
+          )\d{7,8}
+        </nationalNumberPattern>
+      </mobile>
+      <pager>
+        <possibleLengths national="[4-14]"/>
+        <exampleNumber>16412345</exampleNumber>
+        <nationalNumberPattern>
+          16(?:
+            4\d{1,10}|
+            [89]\d{1,11}
+          )
+        </nationalNumberPattern>
+      </pager>
+      <tollFree>
+        <possibleLengths national="[10-15]"/>
+        <exampleNumber>8001234567890</exampleNumber>
+        <nationalNumberPattern>800\d{7,12}</nationalNumberPattern>
+      </tollFree>
+      <!-- Includes the more expensive of the "televoting" line numbers. See the shared cost
+           section for more information. -->
+      <premiumRate>
+        <possibleLengths national="10,11"/>
+        <exampleNumber>9001234567</exampleNumber>
+        <nationalNumberPattern>
+          (?:
+            137[7-9]|
+            900(?:
+              [135]|
+              9\d
+            )
+          )\d{6}
+        </nationalNumberPattern>
+      </premiumRate>
+      <!-- Includes some mass-traffic numbers, used for e.g. phone voting, raffles, since their
+           costs when dialling from a fixed-line phone is similar.
+           Prices:
+           http://www.billiger-telefonieren.de/0180-0137-0900-sonderrufnummern/
+           Documentation:
+           http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Telekommunikation/Unternehmen_Institutionen/Nummerierung/Rufnummern/0137/0137_Nummernplan.pdf?__blob=publicationFile&v=2 -->
+      <sharedCost>
+        <possibleLengths national="[7-14]"/>
+        <exampleNumber>18012345</exampleNumber>
+        <nationalNumberPattern>
+          180\d{5,11}|
+          13(?:
+            7[1-6]\d\d|
+            8
+          )\d{4}
+        </nationalNumberPattern>
+      </sharedCost>
+      <personalNumber>
+        <possibleLengths national="11"/>
+        <exampleNumber>70012345678</exampleNumber>
+        <nationalNumberPattern>700\d{8}</nationalNumberPattern>
+      </personalNumber>
+      <!-- Using UAN for numbers marked in the plan as being assigned to International Virtual
+           Private Networks (0181) and User Groups (018[2-9]). These seem in practice to be assigned
+           to companies. More information here: http://de.wikipedia.org/wiki/Vorwahl_01 -->
+      <uan>
+        <possibleLengths national="[8-14]"/>
+        <exampleNumber>18500123456</exampleNumber>
+        <nationalNumberPattern>
+          18(?:
+            1\d{5,11}|
+            [2-9]\d{8}
+          )
+        </nationalNumberPattern>
+      </uan>
+      <!-- Note corresponding mobile prefixes should be updated as well if new prefixes are added
+           to this section. -->
+      <voicemail>
+        <possibleLengths national="12,13"/>
+        <exampleNumber>177991234567</exampleNumber>
+        <nationalNumberPattern>
+          1(?:
+            6(?:
+              013|
+              255|
+              399
+            )|
+            7(?:
+              (?:
+                [015]1|
+                [69]3
+              )3|
+              [2-4]55|
+              [78]99
+            )
+          )\d{7,8}|
+          15(?:
+            (?:
+              [03-68]00|
+              113
+            )\d|
+            2\d55|
+            7\d99|
+            9\d33
+          )\d{7}
+        </nationalNumberPattern>
+      </voicemail>
+    </territory>
+
+    <!-- Djibouti (DJ) -->
+    <!-- http://www.itu.int/oth/T020200003A/en -->
+    <territory id="DJ" countryCode="253" internationalPrefix="00">
+      <availableFormats>
+        <numberFormat pattern="(\d{2})(\d{2})(\d{2})(\d{2})">
+          <leadingDigits>[27]</leadingDigits>
+          <format>$1 $2 $3 $4</format>
+        </numberFormat>
+      </availableFormats>
+      <generalDesc>
+        <nationalNumberPattern>
+          (?:
+            2\d|
+            77
+          )\d{6}
+        </nationalNumberPattern>
+      </generalDesc>
+      <!-- Includes "Numéro long CDMA fixe" numbers. -->
+      <fixedLine>
+        <possibleLengths national="8"/>
+        <exampleNumber>21360003</exampleNumber>
+        <nationalNumberPattern>
+          2(?:
+            1[2-5]|
+            7[45]
+          )\d{5}
+        </nationalNumberPattern>
+      </fixedLine>
+      <mobile>
+        <possibleLengths national="8"/>
+        <exampleNumber>77831001</exampleNumber>
+        <nationalNumberPattern>77\d{6}</nationalNumberPattern>
+      </mobile>
+    </territory>
+
+    <!-- Poland (PL) -->
+    <!-- Source is in Polish. -->
+    <!-- http://en.wikipedia.org/wiki/%2B48 -->
+    <!-- http://www.itu.int/oth/T02020000A8/en -->
+    <!-- http://www.uke.gov.pl/tablice/home.do?execution=e1s1 -->
+    <!-- http://www.sgwp.wp.mil.pl/pl/1_1225.html -->
+    <territory id="PL" countryCode="48" internationalPrefix="00" mobileNumberPortableRegion="true">
+      <availableFormats>
+        <!-- 5-digit shortcodes. -->
+        <numberFormat pattern="(\d{5})">
+          <leadingDigits>19</leadingDigits>
+          <format>$1</format>
+        </numberFormat>
+        <!-- 6-digit shortcodes and other ranges (e.g. pager). -->
+        <numberFormat pattern="(\d{3})(\d{3})">
+          <leadingDigits>
+            11|
+            64
+          </leadingDigits>
+          <format>$1 $2</format>
+        </numberFormat>
+        <!-- 7-digit fixed-line numbers. -->
+        <numberFormat pattern="(\d{2})(\d{2})(\d{3})">
+          <leadingDigits>
+            (?:
+              1[2-8]|
+              2[2-69]|
+              3[2-4]|
+              4[1-468]|
+              5[24-689]|
+              6[1-3578]|
+              7[14-7]|
+              8[1-79]|
+              9[145]
+            )1
+          </leadingDigits>
+          <leadingDigits>
+            (?:
+              1[2-8]|
+              2[2-69]|
+              3[2-4]|
+              4[1-468]|
+              5[24-689]|
+              6[1-3578]|
+              7[14-7]|
+              8[1-79]|
+              9[145]
+            )19
+          </leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- 7-8 digit pager numbers. -->
+        <numberFormat pattern="(\d{3})(\d{2})(\d{2,3})">
+          <leadingDigits>64</leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- Mobile, pager and a few fixed-line numbers.
+             (70 numbers are formatted as per mobile numbers, based on information from some Polish people). -->
+        <numberFormat pattern="(\d{3})(\d{3})(\d{3})">
+          <leadingDigits>
+            39|
+            45|
+            5[0137]|
+            6[0469]|
+            7[02389]|
+            8[08]
+          </leadingDigits>
+          <format>$1 $2 $3</format>
+        </numberFormat>
+        <!-- 9-digit fixed-line numbers. -->
+        <numberFormat pattern="(\d{2})(\d{3})(\d{2})(\d{2})">
+          <leadingDigits>
+            1[2-8]|
+            [2-8]|
+            9[145]
+          </leadingDigits>
+          <format>$1 $2 $3 $4</format>
+        </numberFormat>
+      </availableFormats>
+      <generalDesc>
+        <nationalNumberPattern>
+          [1-57-9]\d{6}(?:
+            \d{2}
+          )?|
+          6\d{5,8}
+        </nationalNumberPattern>
+      </generalDesc>
+      <!-- The plan says all geographical numbers are 9 digits; but we found customer service
+           numbers 19XXX that can be diallable along with valid area code and are 7 digits
+           instead, so we support those numbers too. See:
+           http://www.polskasiectaxi.pl/pst/pst-partnerzy.
+           Numbers which start with 26 are allocated for the military, see:
+           http://www.sgwp.wp.mil.pl/pl/1_1225.html. -->
+      <fixedLine>
+        <possibleLengths national="7,9"/>
+        <exampleNumber>123456789</exampleNumber>
+        <nationalNumberPattern>
+          (?:
+            1[2-8]|
+            2[2-69]|
+            3[2-4]|
+            4[1-468]|
+            5[24-689]|
+            6[1-3578]|
+            7[14-7]|
+            8[1-79]|
+            9[145]
+          )(?:
+            [02-9]\d{6}|
+            1(?:
+              [0-8]\d{5}|
+              9\d{3}(?:
+                \d{2}
+              )?
+            )
+          )
+        </nationalNumberPattern>
+      </fixedLine>
+      <mobile>
+        <possibleLengths national="9"/>
+        <exampleNumber>512345678</exampleNumber>
+        <nationalNumberPattern>
+          (?:
+            45|
+            5[0137]|
+            6[069]|
+            7[2389]|
+            88
+          )\d{7}
+        </nationalNumberPattern>
+      </mobile>
+      <pager>
+        <possibleLengths national="[6-9]"/>
+        <exampleNumber>641234567</exampleNumber>
+        <nationalNumberPattern>64\d{4,7}</nationalNumberPattern>
+      </pager>
+      <tollFree>
+        <possibleLengths national="9"/>
+        <exampleNumber>800123456</exampleNumber>
+        <nationalNumberPattern>800\d{6}</nationalNumberPattern>
+      </tollFree>
+      <premiumRate>
+        <possibleLengths national="9"/>
+        <exampleNumber>701234567</exampleNumber>
+        <nationalNumberPattern>70[01346-8]\d{6}</nationalNumberPattern>
+      </premiumRate>
+      <sharedCost>
+        <possibleLengths national="9"/>
+        <exampleNumber>801234567</exampleNumber>
+        <nationalNumberPattern>801\d{6}</nationalNumberPattern>
+      </sharedCost>
+      <voip>
+        <possibleLengths national="9"/>
+        <exampleNumber>391234567</exampleNumber>
+        <nationalNumberPattern>39\d{7}</nationalNumberPattern>
+      </voip>
+      <uan>
+        <possibleLengths national="9"/>
+        <exampleNumber>804123456</exampleNumber>
+        <nationalNumberPattern>804\d{6}</nationalNumberPattern>
+      </uan>
+    </territory>
+  </territories>
+</phoneNumberMetadata>
