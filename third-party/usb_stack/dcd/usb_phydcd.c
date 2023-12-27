@@ -23,7 +23,6 @@ typedef enum _usb_phydcd_dev_status
     kUSB_DCDPrimaryDetection,
     kUSB_DCDSecondaryDetection,
     kUSB_DCDDectionFinished,
-
 } usb_phydcd_dev_status_t;
 
 typedef struct _usb_phydcd_state_struct
