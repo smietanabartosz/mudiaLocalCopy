@@ -1,0 +1,66 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.166.1/containers/debian
+{
+	"name": "ubuntu",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "jammy"
+		}
+	},
+	// Configuration for script-library/common-debian.sh script
+	"features": {
+		"common": {
+			"username": "automatic",
+			"uid": "automatic",
+			"gid": "automatic",
+			"installZsh": false,
+			"installOhMyZsh": false,
+			"upgradePackages": true,
+			"nonFreePackages": true
+		}
+	},
+	"customizations": {
+		"vscode": {
+			// Set *default* container specific settings.json values on container create.
+			"settings": {
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/usr/bin/bash",
+						"icon": "terminal-bash"
+					}
+				}
+			},
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"ms-vscode.cpptools",
+				"psioniq.psi-header",
+				"streetsidesoftware.code-spell-checker"
+			]
+		}
+	},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"forwardPorts": [],
+	// Uncomment to use the Docker CLI from inside the container. See https://aka.ms/vscode-remote/samples/docker-from-docker.
+	"mounts": [
+		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+		"source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind",
+		"source=/dev/,target=/dev/,type=bind"
+		// "source=/etc/udev/rules.d/,target=/etc/udev/rules.d/,type=bind"
+	],
+	// Uncomment when using a ptrace-based debugger like C++, Go, and Rust
+	"runArgs": [
+		"--cap-add=SYS_PTRACE",
+		"--security-opt",
+		"seccomp=unconfined",
+		"--privileged",
+		"--hostname=HarmonyDebug"
+	],
+	"remoteEnv": {
+		"DISPLAY": "${localEnv:DISPLAY}" // allow to run & use GUI applications
+	},
+	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode",
+	// Run this command once, just afer conatiner is created
+	"postCreateCommand": "cd config && ./bootstrap.sh 0-"
+}
