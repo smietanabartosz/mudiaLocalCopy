@@ -6,13 +6,14 @@
  */
 #include "usb_phydcd.h"
 #include "usb_phydcd_config.h"
+#include <log/log.hpp>
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 #define USB_DCD_DATA_PIN_MAX_DETECTION_COUNT (100U)
 /*time settting in ms*/
-#define USB_DCD_DATA_PIN_DETECTION_TIME (10U)
-#define USB_DCD_PRIMIARY_DETECTION_TIME (100U)
+#define USB_DCD_DATA_PIN_DETECTION_TIME  (10U)
+#define USB_DCD_PRIMIARY_DETECTION_TIME  (100U)
 #define USB_DCD_SECONDARY_DETECTION_TIME (80U)
 typedef enum _usb_phydcd_dev_status
 {
@@ -23,6 +24,7 @@ typedef enum _usb_phydcd_dev_status
     kUSB_DCDPrimaryDetection,
     kUSB_DCDSecondaryDetection,
     kUSB_DCDDectionFinished,
+    kUSB_DCDDectionCanceled,
 } usb_phydcd_dev_status_t;
 
 typedef struct _usb_phydcd_state_struct
@@ -46,6 +48,7 @@ typedef struct _usb_phydcd_state_struct
 /*******************************************************************************
  * Variables
  ******************************************************************************/
+static bool dcd_started = false;
 
 /* Apply for device dcd state structure */
 static usb_phydcd_state_struct_t s_UsbDeviceDcdHSState[FSL_FEATURE_SOC_USBPHY_COUNT];
@@ -62,8 +65,7 @@ usb_phydcd_status_t USB_PHYDCD_Init(uint8_t index, usb_phydcd_config_struct_t *c
     uint32_t *temp;
     base               = (USB_ANALOG_Type *)analog_base[0];
     uint32_t phyBase[] = USBPHY_BASE_ADDRS;
-    if ((NULL == config) || (NULL == base) || (NULL == config->dcdCallback))
-    {
+    if ((NULL == config) || (NULL == base) || (NULL == config->dcdCallback)) {
         return kStatus_phydcd_Error;
     }
 
@@ -100,154 +102,158 @@ usb_phydcd_status_t USB_PHYDCD_Control(usb_phydcd_handle handle, usb_phydcd_cont
     usb_phydcd_state_struct_t *dcdState;
     dcdState                     = (usb_phydcd_state_struct_t *)handle;
     usb_phydcd_status_t dcdError = kStatus_phydcd_Success;
-    if (NULL == handle)
-    {
+    if (NULL == handle) {
         return kStatus_phydcd_Error;
     }
-    switch (type)
-    {
-        case kUSB_DevicePHYDcdRun:
-            if (0U == dcdState->dcdDisable)
-            {
-                dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
-            }
-            break;
-        case kUSB_DevicePHYDcdStop:
-            if (0U == dcdState->dcdDisable)
-            {
-                dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectInit;
-            }
-            break;
-        case kUSB_DevicePHYDcdEnable:
-            dcdState->dcdDisable = 0U;
-            break;
-        case kUSB_DevicePHYDcdDisable:
-            dcdState->dcdDisable = 1U;
-            break;
-        default:
-            /*no action*/
-            break;
+    switch (type) {
+    case kUSB_DevicePHYDcdRun:
+        if (0U == dcdState->dcdDisable) {
+            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
+        }
+        break;
+    case kUSB_DevicePHYDcdStop:
+        if (0U == dcdState->dcdDisable) {
+            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectInit;
+        }
+        break;
+    case kUSB_DevicePHYDcdEnable:
+        dcdState->dcdDisable = 0U;
+        break;
+    case kUSB_DevicePHYDcdDisable:
+        dcdState->dcdDisable = 1U;
+        break;
+    default:
+        /*no action*/
+        break;
     }
     return dcdError;
 }
 
-usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle,const uint64_t tick)
+usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const uint64_t tick)
 {
     usb_phydcd_status_t dcdError = kStatus_phydcd_Success;
     usb_phydcd_state_struct_t *dcdState;
     dcdState = (usb_phydcd_state_struct_t *)handle;
     USBPHY_Type *usbPhyBase;
     usb_phydcd_dev_status_t dcdStatus;
-    if (NULL == handle)
-    {
+    if (NULL == handle) {
         return kStatus_phydcd_Error;
     }
     dcdState->hwTick = tick;
 
     dcdStatus = (usb_phydcd_dev_status_t)dcdState->dcdDetectState;
-    switch (dcdStatus)
-    {
-        case kUSB_DCDDetectInit:
+    switch (dcdStatus) {
+    case kUSB_DCDDetectInit:
+        LOG_INFO("kUSB_DCDDetectInit");
+        break;
+    case kUSB_DCDDetectIdle:
+        break;
+    case kUSB_DCDDetectStart:
+        LOG_INFO("kUSB_DCDDetectStart");
+        if (dcd_started == true) {
+            LOG_INFO("kUSB_DCDDetectStart_FAULTY!!!");
+            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionCanceled;
             break;
-        case kUSB_DCDDetectIdle:
-            break;
-        case kUSB_DCDDetectStart:
-            /*Enable the charger detector.*/
-            dcdState->dcdDetectState    = (uint8_t)kUSB_DCDDataContactDetection;
-            dcdState->detectResult      = (uint8_t)kUSB_DcdUnknownType;
-            dcdState->dataPinCheckTimes = 0U;
-            dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |= USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK;
-            dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_SET |=
-                USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK;
-            dcdState->startTime = dcdState->hwTick;
-            break;
-        case kUSB_DCDDataContactDetection:
-            if ((dcdState->hwTick - dcdState->startTime) / USB_DCD_DATA_PIN_DETECTION_TIME)
-            {
-                if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
-                           USB_ANALOG_CHRG_DETECT_STAT_PLUG_CONTACT_MASK))
-                {
-                    dcdState->dataPinCheckTimes++;
-                    if (dcdState->dataPinCheckTimes >= 5U)
-                    {
-                        dcdState->dcdDetectState = (uint8_t)kUSB_DCDPrimaryDetection;
-                        dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |=
-                            USB_ANALOG_CHRG_DETECT_CLR_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_CLR_CHK_CHRG_B_MASK;
-                        dcdState->startTime = dcdState->hwTick;
-                    }
-                }
-                else
-                {
-                    dcdState->dataPinCheckTimes = 0U;
+        }
+        dcd_started                 = true;
+        dcdState->dcdDetectState    = (uint8_t)kUSB_DCDDataContactDetection;
+        dcdState->detectResult      = (uint8_t)kUSB_DcdUnknownType;
+        dcdState->dataPinCheckTimes = 0U;
+        dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |= USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK;
+        dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_SET |=
+            USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK;
+        dcdState->startTime = dcdState->hwTick;
+        break;
+    case kUSB_DCDDataContactDetection:
+        LOG_INFO("kUSB_DCDDataContactDetection");
+        if ((dcdState->hwTick - dcdState->startTime) / USB_DCD_DATA_PIN_DETECTION_TIME) {
+            if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
+                       USB_ANALOG_CHRG_DETECT_STAT_PLUG_CONTACT_MASK)) {
+                dcdState->dataPinCheckTimes++;
+                if (dcdState->dataPinCheckTimes >= 5U) {
+                    dcdState->dcdDetectState = (uint8_t)kUSB_DCDPrimaryDetection;
+                    dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |=
+                        USB_ANALOG_CHRG_DETECT_CLR_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_CLR_CHK_CHRG_B_MASK;
+                    dcdState->startTime = dcdState->hwTick;
                 }
             }
+            else {
+                dcdState->dataPinCheckTimes = 0U;
+            }
+        }
 
-            if ((dcdState->hwTick - dcdState->startTime) >=
-                USB_DCD_DATA_PIN_DETECTION_TIME * USB_DCD_DATA_PIN_MAX_DETECTION_COUNT)
-            {
-                if (((uint8_t)kUSB_DCDDataContactDetection) == dcdState->dcdDetectState)
-                {
-                    dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectInit;
-                    dcdState->startTime      = 0U;
-                    dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_SET |=
-                        USB_ANALOG_CHRG_DETECT_SET_EN_B_MASK | USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK;
-                    dcdState->detectResult   = (uint8_t)kUSB_DcdError;
-                    dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
-                }
-            }
-            break;
-        case kUSB_DCDPrimaryDetection:
-            if (dcdState->hwTick - dcdState->startTime >= USB_DCD_PRIMIARY_DETECTION_TIME)
-            {
-                if (0U == (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
-                           USB_ANALOG_CHRG_DETECT_STAT_CHRG_DETECTED_MASK))
-                {
-                    dcdState->detectResult   = (uint8_t)kUSB_DcdSDP;
-                    dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
-                }
-                else
-                {
-                    dcdState->dcdDetectState = (uint8_t)kUSB_DCDSecondaryDetection;
-                }
+        if ((dcdState->hwTick - dcdState->startTime) >=
+            USB_DCD_DATA_PIN_DETECTION_TIME * USB_DCD_DATA_PIN_MAX_DETECTION_COUNT) {
+            if (((uint8_t)kUSB_DCDDataContactDetection) == dcdState->dcdDetectState) {
+                dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectInit;
+                dcdState->startTime      = 0U;
                 dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_SET |=
                     USB_ANALOG_CHRG_DETECT_SET_EN_B_MASK | USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK;
-                if (((uint8_t)kUSB_DCDSecondaryDetection) == dcdState->dcdDetectState)
-                {
-                    usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
-                    usbPhyBase->DEBUG_CLR |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
-                    dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_SET |=
-                        USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
-                }
-                dcdState->startTime = dcdState->hwTick;
-            }
-            break;
-        case kUSB_DCDSecondaryDetection:
-            if (dcdState->hwTick - dcdState->startTime >= USB_DCD_SECONDARY_DETECTION_TIME)
-            {
-                if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
-                           USB_ANALOG_CHRG_DETECT_STAT_DM_STATE_MASK))
-                {
-                    dcdState->detectResult = (uint8_t)kUSB_DcdDCP;
-                }
-                else
-                {
-                    dcdState->detectResult = (uint8_t)kUSB_DcdCDP;
-                }
-                dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |=
-                    USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
-                usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
-                usbPhyBase->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
+                dcdState->detectResult   = (uint8_t)kUSB_DcdError;
                 dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
             }
-            break;
-        case kUSB_DCDDectionFinished:
-            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectIdle;
-            (void)dcdState->dcdCallback(dcdState->dcdCallbackParam, dcdState->detectResult,
-                                        (void *)&dcdState->detectResult);
-            break;
-        default:
-            /* no action*/
-            break;
+        }
+        break;
+    case kUSB_DCDPrimaryDetection:
+        LOG_INFO("kUSB_DCDPrimaryDetection");
+        if (dcdState->hwTick - dcdState->startTime >= USB_DCD_PRIMIARY_DETECTION_TIME) {
+            if (0U == (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
+                       USB_ANALOG_CHRG_DETECT_STAT_CHRG_DETECTED_MASK)) {
+                dcdState->detectResult   = (uint8_t)kUSB_DcdSDP;
+                dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
+            }
+            else {
+                dcdState->dcdDetectState = (uint8_t)kUSB_DCDSecondaryDetection;
+            }
+            dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_SET |=
+                USB_ANALOG_CHRG_DETECT_SET_EN_B_MASK | USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK;
+            if (((uint8_t)kUSB_DCDSecondaryDetection) == dcdState->dcdDetectState) {
+                usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
+                usbPhyBase->DEBUG_CLR |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
+                dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_SET |=
+                    USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
+            }
+            dcdState->startTime = dcdState->hwTick;
+        }
+        break;
+    case kUSB_DCDSecondaryDetection:
+        LOG_INFO("kUSB_DCDSecondaryDetection");
+        if (dcdState->hwTick - dcdState->startTime >= USB_DCD_SECONDARY_DETECTION_TIME) {
+            if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
+                       USB_ANALOG_CHRG_DETECT_STAT_DM_STATE_MASK)) {
+                dcdState->detectResult = (uint8_t)kUSB_DcdDCP;
+            }
+            else {
+                dcdState->detectResult = (uint8_t)kUSB_DcdCDP;
+            }
+            dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |= USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
+            usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
+            usbPhyBase->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
+            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
+        }
+        break;
+    case kUSB_DCDDectionFinished:
+    LOG_INFO("kUSB_DCDDectionFinished");
+        dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectIdle;
+        (void)dcdState->dcdCallback(
+            dcdState->dcdCallbackParam, dcdState->detectResult, (void *)&dcdState->detectResult);
+        dcd_started = false;
+        break;
+    case kUSB_DCDDectionCanceled:
+        LOG_INFO("kUSB_DCDDectionCanceled");
+        dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |= USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK;
+        dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |=
+                        USB_ANALOG_CHRG_DETECT_CLR_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_CLR_CHK_CHRG_B_MASK;
+        dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |= USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
+        usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
+        usbPhyBase->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
+        usbPhyBase->DEBUG_CLR |= bits_to_change;
+        dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
+        dcd_started = false;
+        break;
+    default:
+        /* no action*/
+        break;
     }
     return dcdError;
 }
