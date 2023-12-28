@@ -15,6 +15,7 @@
 #define USB_DCD_DATA_PIN_DETECTION_TIME  (10U)
 #define USB_DCD_PRIMIARY_DETECTION_TIME  (100U)
 #define USB_DCD_SECONDARY_DETECTION_TIME (80U)
+#define USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG (0x3CU)
 typedef enum _usb_phydcd_dev_status
 {
     kUSB_DCDDetectInit = 0x0U,
@@ -55,6 +56,32 @@ static usb_phydcd_state_struct_t s_UsbDeviceDcdHSState[FSL_FEATURE_SOC_USBPHY_CO
 /*******************************************************************************
  * Code
  ******************************************************************************/
+
+static uint8_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t *dcdState)
+{
+    if (dcdState->detectResult != (uint8_t)kUSB_DcdError) {
+        return 1;
+    }
+
+    if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
+               USB_ANALOG_CHRG_DETECT_STAT_DP_STATE_MASK)) {
+        LOG_INFO("DP is HIGH -> THIS IS APPLE!!!");
+        dcdState->detectResult = (uint8_t)kUSB_DcdDCP;
+    }
+    else {
+        LOG_INFO("DP is LOW!!!");
+    }
+
+    if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
+               USB_ANALOG_CHRG_DETECT_STAT_DM_STATE_MASK)) {
+        LOG_INFO("DM is HIGH!!!");
+    }
+    else {
+        LOG_INFO("DM is LOW!!!");
+    }
+    dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
+    return 0;
+}
 
 usb_phydcd_status_t USB_PHYDCD_Init(uint8_t index, usb_phydcd_config_struct_t *config, usb_phydcd_handle *dcdHandle)
 {
@@ -145,6 +172,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
     switch (dcdStatus) {
     case kUSB_DCDDetectInit:
         LOG_INFO("kUSB_DCDDetectInit");
+        // USB_PHYDCD_Apple_Check(dcdState); // DO SPRAWDZENIA 
         break;
     case kUSB_DCDDetectIdle:
         break;
@@ -212,6 +240,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
                 usbPhyBase->DEBUG_CLR |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
                 dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_SET |=
                     USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
+                usbPhyBase->DEBUG_SET |= USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG;
             }
             dcdState->startTime = dcdState->hwTick;
         }
@@ -229,12 +258,14 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
             dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |= USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
             usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
             usbPhyBase->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
+            usbPhyBase->DEBUG_CLR |= USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG;
             dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
         }
         break;
     case kUSB_DCDDectionFinished:
     LOG_INFO("kUSB_DCDDectionFinished");
         dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectIdle;
+        USB_PHYDCD_Apple_Check(dcdState);
         (void)dcdState->dcdCallback(
             dcdState->dcdCallbackParam, dcdState->detectResult, (void *)&dcdState->detectResult);
         dcd_started = false;
@@ -247,7 +278,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
         dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |= USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
         usbPhyBase = (USBPHY_Type *)dcdState->phyBase;
         usbPhyBase->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
-        usbPhyBase->DEBUG_CLR |= bits_to_change;
+        usbPhyBase->DEBUG_CLR |= USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG;
         dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
         dcd_started = false;
         break;
