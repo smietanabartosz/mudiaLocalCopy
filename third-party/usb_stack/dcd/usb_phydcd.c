@@ -67,17 +67,21 @@ static usb_phydcd_state_struct_t s_UsbDeviceDcdHSState[FSL_FEATURE_SOC_USBPHY_CO
 
 static uint8_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t *dcdState)
 {
-    if (dcdState->detectResult != (uint8_t)kUSB_DcdError) {
+    /* if (dcdState->detectResult != (uint8_t)kUSB_DcdError) {
         return 1;
     }
+    */
 
     if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
                USB_ANALOG_CHRG_DETECT_STAT_DP_STATE_MASK)) {
         LOG_INFO("DP is HIGH -> THIS IS APPLE!!!");
         dcdState->detectResult = (uint8_t)kUSB_DcdDCP;
+        dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
+        // TO DO KD - change to check both lines in one condition
     }
     else {
         LOG_INFO("DP is LOW!!!");
+        dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
     }
 
     if (0U != (dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_STAT &
@@ -87,7 +91,6 @@ static uint8_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t *dcdState)
     else {
         LOG_INFO("DM is LOW!!!");
     }
-    dcdState->dcdDetectState = (uint8_t)kUSB_DCDDectionFinished;
     return 0;
 }
 
@@ -143,7 +146,7 @@ usb_phydcd_status_t USB_PHYDCD_Control(usb_phydcd_handle handle, usb_phydcd_cont
     switch (type) {
     case kUSB_DevicePHYDcdRun:
         if (0U == dcdState->dcdDisable) {
-            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
+            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectInit;
         }
         break;
     case kUSB_DevicePHYDcdStop:
@@ -477,7 +480,7 @@ static usb_phydcd_dev_status_t dcdSecondaryDetection(usb_phydcd_state_struct_t *
 
 static usb_phydcd_dev_status_t dcdDetectionFinished(usb_phydcd_state_struct_t *dcd)
 {
-	USB_PHYDCD_Apple_Check(dcd);
+	// USB_PHYDCD_Apple_Check(dcd);
     (void)dcd->dcdCallback(dcd->dcdCallbackParam, dcd->detectResult, (void *)&dcd->detectResult);
 
 	/* Change state machine to Idle */
@@ -498,6 +501,7 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
 		switch(dcdState->dcdDetectState)
 		{
 			case (uint8_t)kUSB_DCDDetectInit:
+                USB_PHYDCD_Apple_Check(dcdState);
 				break;
 			case (uint8_t)kUSB_DCDDetectIdle:
 				break;
