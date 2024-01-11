@@ -137,37 +137,37 @@ usb_phydcd_status_t USB_PHYDCD_Control(usb_phydcd_handle handle, usb_phydcd_cont
     return dcdError;
 }
 
-void usbAnalogChargerDetectRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
+static void usbAnalogChargerDetectRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
 {
     if (state == CLEAR) {
-        dcd->usbAnalogBase->INSTANCE[dcd->index].CHRG_DETECT_CLR |= mask;
+        dcd->usbAnalogBase->INSTANCE[dcd->index].CHRG_DETECT_CLR = mask;
     }
     else {
-        dcd->usbAnalogBase->INSTANCE[dcd->index].CHRG_DETECT_SET |= mask;
+        dcd->usbAnalogBase->INSTANCE[dcd->index].CHRG_DETECT_SET = mask;
     }
 }
 
-void usbLoopbackRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
+static void usbLoopbackRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
 {
     if (state == CLEAR) {
-        dcd->usbAnalogBase->INSTANCE[dcd->index].LOOPBACK_CLR |= mask;
+        dcd->usbAnalogBase->INSTANCE[dcd->index].LOOPBACK_CLR = mask;
     }
     else {
-        dcd->usbAnalogBase->INSTANCE[dcd->index].LOOPBACK_SET |= mask;
+        dcd->usbAnalogBase->INSTANCE[dcd->index].LOOPBACK_SET = mask;
     }
 }
 
-void usbPhyDebugRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
+static void usbPhyDebugRegSet(usb_phydcd_state_struct_t *dcd, dcdBitState state, uint32_t mask)
 {
     if (state == CLEAR) {
-        ((USBPHY_Type *)dcd->phyBase)->DEBUG_CLR |= mask;
+        ((USBPHY_Type *)dcd->phyBase)->DEBUG_CLR = mask;
     }
     else {
-        ((USBPHY_Type *)dcd->phyBase)->DEBUG_SET |= mask;
+        ((USBPHY_Type *)dcd->phyBase)->DEBUG_SET = mask;
     }
 }
 
-uint32_t usbAnalogChargerDetectStatGet(usb_phydcd_state_struct_t *dcd, uint32_t mask)
+static uint32_t usbAnalogChargerDetectStatGet(usb_phydcd_state_struct_t *dcd, uint32_t mask)
 {
     return (dcd->usbAnalogBase->INSTANCE[dcd->index].CHRG_DETECT_STAT & mask);
 }
@@ -178,7 +178,7 @@ static usb_phydcd_dev_status_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t 
     bool dm_state = false;
     LOG_INFO("Apple check");
 
-    if ((dcd->hwTick - dcd->startTime) >= 500U) {
+    if ((dcd->hwTick - dcd->startTime) >= 50U) {
         if (usbAnalogChargerDetectStatGet(dcd, USB_ANALOG_CHRG_DETECT_STAT_DP_STATE_MASK) != 0U) {
             LOG_INFO("DP is HIGH");
             dp_state = true;
@@ -530,18 +530,6 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
         case (uint8_t)kUSB_DCDAppleCheck:
             dcdState->dcdDetectState = (uint8_t)USB_PHYDCD_Apple_Check(dcdState);
             break;
-
-        /*case (uint8_t)kUSB_DCDDectionCanceled:
-            LOG_INFO("kUSB_DCDDectionCanceled");
-            dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |= USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK;
-            dcdState->usbAnalogBase->INSTANCE[dcdState->index].CHRG_DETECT_CLR |=
-                USB_ANALOG_CHRG_DETECT_CLR_CHK_CONTACT_MASK | USB_ANALOG_CHRG_DETECT_CLR_CHK_CHRG_B_MASK;
-            dcdState->usbAnalogBase->INSTANCE[dcdState->index].LOOPBACK_CLR |= USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK;
-            ((USBPHY_Type *)dcdState->phyBase)->DEBUG_SET |= USBPHY_DEBUG_CLR_CLKGATE_MASK;
-            ((USBPHY_Type *)dcdState->phyBase)->DEBUG_CLR |= USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG;
-            dcdState->dcdDetectState = (uint8_t)kUSB_DCDDetectStart;
-            dcd_started              = false;
-            break;*/
         default:
             break;
         }
