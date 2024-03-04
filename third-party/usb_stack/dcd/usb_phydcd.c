@@ -14,7 +14,7 @@
 /*time settting in ms*/
 #define USB_DCD_DATA_PIN_DETECTION_TIME              (10U)
 #define USB_DCD_PRIMIARY_DETECTION_TIME              (100U)
-#define USB_DCD_SECONDARY_DETECTION_TIME             (80U)
+#define USB_DCD_SECONDARY_DETECTION_TIME             (100U)
 #define USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG (0x3CU)
 typedef enum _usb_phydcd_dev_status
 {
@@ -27,6 +27,7 @@ typedef enum _usb_phydcd_dev_status
     kUSB_DCDSecondaryDetection,
     kUSB_DCDDectionFinished,
     kUSB_DCDAppleCheck,
+    kUSB_DCDDetectWait,
 } usb_phydcd_dev_status_t;
 
 typedef enum
@@ -175,10 +176,10 @@ static uint32_t usbAnalogChargerDetectStatGet(usb_phydcd_state_struct_t *dcd, ui
 static usb_phydcd_dev_status_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t *dcd)
 {
     bool dp_state = false;
-    bool dm_state = false;
+    // bool dm_state = false;
     LOG_INFO("Apple check");
 
-    if ((dcd->hwTick - dcd->startTime) >= 50U) {
+    if ((dcd->hwTick - dcd->startTime) >= 100U) {
         if (usbAnalogChargerDetectStatGet(dcd, USB_ANALOG_CHRG_DETECT_STAT_DP_STATE_MASK) != 0U) {
             LOG_INFO("DP is HIGH");
             dp_state = true;
@@ -190,20 +191,22 @@ static usb_phydcd_dev_status_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t 
 
         if (usbAnalogChargerDetectStatGet(dcd, USB_ANALOG_CHRG_DETECT_STAT_DM_STATE_MASK) != 0U) {
             LOG_INFO("DM is HIGH");
-            dm_state = true;
+            // dm_state = true;
         }
         else {
             LOG_INFO("DM is LOW");
-            dm_state = false;
+            // dm_state = false;
         }
 
-        if ((dp_state == true) && (dm_state == true)) {
+        if ((dp_state == true)) { // && (dm_state == true)
             LOG_INFO("THIS IS APPLE!!!");
             dcd->detectResult = (uint8_t)kUSB_DcdDCP;
         }
         else {
             // dcd->dcdDetectState = (uint8_t)kUSB_DCDPrimaryDetection;
         }
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
         /* Change state machine to detection finished */
         return kUSB_DCDDectionFinished;
     }
@@ -214,88 +217,99 @@ static usb_phydcd_dev_status_t dcdDetectionInit(usb_phydcd_state_struct_t *dcd)
 {
     LOG_INFO("dcdDetectionInit");
 
-    /* Control the charger detector (EN_B)
-     * 		0  ENABLE — Enable the charger detector.
-     * 		1  DISABLE — Disable the charger detector.
-     */
-    usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_EN_B_MASK);
+    if ((dcd->hwTick - dcd->startTime) >= 100u) {
+        /* Control the charger detector (EN_B)
+         * 		0  ENABLE — Enable the charger detector.
+         * 		1  DISABLE — Disable the charger detector.
+         */
+        usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_EN_B_MASK);
 
-    /* Check the charger connection (CHK_CHRG_B)
-     * 		0 CHECK — Check whether a charger (either a dedicated charger or a host charger) is connected to USB
-                        port.
-     * 		1 NO_CHECK — Do not check whether a charger is connected to the USB port.
-     */
-    usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK);
+        /* Check the charger connection (CHK_CHRG_B)
+         * 		0 CHECK — Check whether a charger (either a dedicated charger or a host charger) is connected to USB
+                            port.
+         * 		1 NO_CHECK — Do not check whether a charger is connected to the USB port.
+         */
+        usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK);
 
-    /* Check the contact of USB plug(CHK_CONTACT)
-     * 		0 NO_CHECK — Do not check the contact of USB plug.
-     * 		1 CHECK — Check whether the USB plug has been in contact with each other
-     */
-    usbAnalogChargerDetectRegSet(dcd, CLEAR, USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK);
+        /* Check the contact of USB plug(CHK_CONTACT)
+         * 		0 NO_CHECK — Do not check the contact of USB plug.
+         * 		1 CHECK — Check whether the USB plug has been in contact with each other
+         */
+        usbAnalogChargerDetectRegSet(dcd, CLEAR, USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK);
 
-    /* Setting this bit can enable 1.5 kΩ pull-up resister on DP.(UTMI_TESTSTART)
-     * 		Setting this bit can enable 1.5 kΩ pull-up resister on DP.
-     *
-     * 		This bit can only be used as DCD detection, while it must be cleared in normal function.
-     */
-    usbLoopbackRegSet(dcd, CLEAR, USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK);
+        /* Setting this bit can enable 1.5 kΩ pull-up resister on DP.(UTMI_TESTSTART)
+         * 		Setting this bit can enable 1.5 kΩ pull-up resister on DP.
+         *
+         * 		This bit can only be used as DCD detection, while it must be cleared in normal function.
+         */
+        usbLoopbackRegSet(dcd, CLEAR, USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK);
 
-    /* HSTPULLDOWN
-     * Set bit 3 to 1 to pull down 15-KOhm on USB_DP line.
-     * Set bit 2 to 1 to pull down 15-KOhm on USB_DM line.
-     * Clear to 0 to disable.
-     */
-    usbPhyDebugRegSet(dcd, CLEAR, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
+        /* HSTPULLDOWN
+         * Set bit 3 to 1 to pull down 15-KOhm on USB_DP line.
+         * Set bit 2 to 1 to pull down 15-KOhm on USB_DM line.
+         * Clear to 0 to disable.
+         */
+        usbPhyDebugRegSet(dcd, CLEAR, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
 
-    /* Gate Test Clocks. (CLKGATE)
-     * 		Clear to 0 for running clocks.
-     * 		Set to 1 to gate clocks. Set this to save power while the USB is not actively being used
-     */
-    usbPhyDebugRegSet(dcd, SET, USBPHY_DEBUG_CLR_CLKGATE_MASK);
+        /* Gate Test Clocks. (CLKGATE)
+         * 		Clear to 0 for running clocks.
+         * 		Set to 1 to gate clocks. Set this to save power while the USB is not actively being used
+         */
+        usbPhyDebugRegSet(dcd, SET, USBPHY_DEBUG_CLR_CLKGATE_MASK);
 
-    /* Change state machine */
-    return kUSB_DCDDetectStart;
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
+
+        /* Change state machine */
+        return kUSB_DCDDetectStart;
+    }
+    return kUSB_DCDDetectInit;
 }
 
 static usb_phydcd_dev_status_t dcdDetectionStart(usb_phydcd_state_struct_t *dcd)
 {
     /* VBUS detected, lets start charging detection */
+    if ((dcd->hwTick - dcd->startTime) >= 100u) {
+        /* Unknown detect result due to start detection */
+        dcd->detectResult = (uint8_t)kUSB_DcdUnknownType;
 
-    /* Unknown detect result due to start detection */
-    dcd->detectResult = (uint8_t)kUSB_DcdUnknownType;
+        /* Clear PinCheckTimes */
+        dcd->dataPinCheckTimes = 0U;
 
-    /* Clear PinCheckTimes */
-    dcd->dataPinCheckTimes = 0U;
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
 
-    /* Set new state start time */
-    dcd->startTime = dcd->hwTick;
+        /*
+         * i.MX RT1050 Processor Reference Manual, Rev. 5, 09/2021
+         * 		43.5.2 USB Charger Detect Register (USB_ANALOG_USB1_CHRG_DETECTn) p.2559
+         */
 
-    /*
-     * i.MX RT1050 Processor Reference Manual, Rev. 5, 09/2021
-     * 		43.5.2 USB Charger Detect Register (USB_ANALOG_USB1_CHRG_DETECTn) p.2559
-     */
+        /* Control the charger detector (EN_B)
+         * 		0  ENABLE — Enable the charger detector.
+         * 		1  DISABLE — Disable the charger detector.
+         */
+        usbAnalogChargerDetectRegSet(dcd, CLEAR, USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK);
 
-    /* Control the charger detector (EN_B)
-     * 		0  ENABLE — Enable the charger detector.
-     * 		1  DISABLE — Disable the charger detector.
-     */
-    usbAnalogChargerDetectRegSet(dcd, CLEAR, USB_ANALOG_CHRG_DETECT_CLR_EN_B_MASK);
+        /*
+         * Check the charger connection (CHK_CHRG_B)
+         * 		0 CHECK — Check whether a charger (either a dedicated charger or a host charger) is connected to USB
+         * port. 1 NO_CHECK — Do not check whether a charger is connected to the USB port.
+         */
+        usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK);
 
-    /*
-     * Check the charger connection (CHK_CHRG_B)
-     * 		0 CHECK — Check whether a charger (either a dedicated charger or a host charger) is connected to USB port.
-     * 		1 NO_CHECK — Do not check whether a charger is connected to the USB port.
-     */
-    usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CHRG_B_MASK);
+        /* Check the contact of USB plug (CHK_CONTACT)
+         * 		0 NO_CHECK — Do not check the contact of USB plug.
+         * 		1 CHECK — Check whether the USB plug has been in contact with each other
+         */
+        usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK);
 
-    /* Check the contact of USB plug (CHK_CONTACT)
-     * 		0 NO_CHECK — Do not check the contact of USB plug.
-     * 		1 CHECK — Check whether the USB plug has been in contact with each other
-     */
-    usbAnalogChargerDetectRegSet(dcd, SET, USB_ANALOG_CHRG_DETECT_SET_CHK_CONTACT_MASK);
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
 
-    /* Change state machine */
-    return kUSB_DCDDataContactDetection;
+        /* Change state machine */
+        return kUSB_DCDDataContactDetection;
+    }
+    return kUSB_DCDDetectStart;
 }
 
 static usb_phydcd_dev_status_t dcdContactDetection(usb_phydcd_state_struct_t *dcd)
@@ -415,8 +429,8 @@ static usb_phydcd_dev_status_t dcdPostPrimaryDetection(usb_phydcd_state_struct_t
 {
     usb_phydcd_dev_status_t ret = dcd->dcdDetectState;
 
-    /* Post Primary detection after 50 [ms] */
-    if ((dcd->hwTick - dcd->startTime) >= 50u) {
+    /* Post Primary detection after the same time as Primary Detection */
+    if ((dcd->hwTick - dcd->startTime) >= USB_DCD_PRIMIARY_DETECTION_TIME) {
         /* Gate Test Clocks. (CLKGATE)
          * 		Clear to 0 for running clocks.
          * 		Set to 1 to gate clocks. Set this to save power while the USB is not actively being used
@@ -425,6 +439,13 @@ static usb_phydcd_dev_status_t dcdPostPrimaryDetection(usb_phydcd_state_struct_t
          */
         usbPhyDebugRegSet(dcd, CLEAR, USBPHY_DEBUG_CLR_CLKGATE_MASK);
 
+        /* HSTPULLDOWN
+         * Set bit 3 to 1 to pull down 15-KOhm on USB_DP line.
+         * Set bit 2 to 1 to pull down 15-KOhm on USB_DM line.
+         * Clear to 0 to disable.
+         */
+        usbPhyDebugRegSet(dcd, SET, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
+
         /* Setting this bit can enable 1.5 kΩ pull-up resister on DP.(UTMI_TESTSTART)
          * 		Setting this bit can enable 1.5 kΩ pull-up resister on DP.
          *
@@ -432,12 +453,8 @@ static usb_phydcd_dev_status_t dcdPostPrimaryDetection(usb_phydcd_state_struct_t
          */
         usbLoopbackRegSet(dcd, SET, USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK);
 
-        /* HSTPULLDOWN
-         * Set bit 3 to 1 to pull down 15-KOhm on USB_DP line.
-         * Set bit 2 to 1 to pull down 15-KOhm on USB_DM line.
-         * Clear to 0 to disable.
-         */
-        usbPhyDebugRegSet(dcd, SET, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
 
         /* Change state machine to secondary detection */
         ret = kUSB_DCDSecondaryDetection;
@@ -449,7 +466,7 @@ static usb_phydcd_dev_status_t dcdSecondaryDetection(usb_phydcd_state_struct_t *
 {
     usb_phydcd_dev_status_t ret = dcd->dcdDetectState;
 
-    /* Secondary detection after 50 [ms] */
+    /* Secondary detection after set time*/
     if ((dcd->hwTick - dcd->startTime) >= USB_DCD_SECONDARY_DETECTION_TIME) {
         /* DM line state output of the charger detector (DM_STATE)
          * 		DM_STATE
@@ -478,6 +495,9 @@ static usb_phydcd_dev_status_t dcdSecondaryDetection(usb_phydcd_state_struct_t *
          */
         usbPhyDebugRegSet(dcd, CLEAR, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
 
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
+
         /* Change state machine to detection finished */
         ret = kUSB_DCDDectionFinished;
     }
@@ -487,10 +507,37 @@ static usb_phydcd_dev_status_t dcdSecondaryDetection(usb_phydcd_state_struct_t *
 
 static usb_phydcd_dev_status_t dcdDetectionFinished(usb_phydcd_state_struct_t *dcd)
 {
+    static uint32_t run_Times = 0;
+    usb_phydcd_dev_status_t next_step;
+
+    if (run_Times == 0U) {
+        LOG_INFO("dcdDetectionFinished, detectResult: %u", dcd->detectResult);
+        dcd->detectResult = (uint8_t)kUSB_DcdUnknownType;
+        next_step         = kUSB_DCDDetectWait;
+    }
+    else {
+        next_step = kUSB_DCDDetectIdle;
+    }
+
     (void)dcd->dcdCallback(dcd->dcdCallbackParam, dcd->detectResult, (void *)&dcd->detectResult);
 
+    run_Times++;
+
+    /* Set new state start time */
+    dcd->startTime = dcd->hwTick;
     /* Change state machine to Idle */
-    return kUSB_DCDDetectIdle;
+    return next_step;
+}
+
+static usb_phydcd_dev_status_t dcdDetectionWait(usb_phydcd_state_struct_t *dcd)
+{
+    if ((dcd->hwTick - dcd->startTime) >= 1500u) {
+        /* Set new state start time */
+        dcd->startTime = dcd->hwTick;
+        /* Change state machine to Idle */
+        return kUSB_DCDDetectInit;
+    }
+    return kUSB_DCDDetectWait;
 }
 
 usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const uint64_t tick)
@@ -529,6 +576,9 @@ usb_phydcd_status_t USB_PHYDCD_TimerIsrFunction(usb_phydcd_handle handle, const 
             break;
         case (uint8_t)kUSB_DCDAppleCheck:
             dcdState->dcdDetectState = (uint8_t)USB_PHYDCD_Apple_Check(dcdState);
+            break;
+        case (uint8_t)kUSB_DCDDetectWait:
+            dcdState->dcdDetectState = (uint8_t)dcdDetectionWait(dcdState);
             break;
         default:
             break;
