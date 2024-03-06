@@ -199,7 +199,7 @@ static usb_phydcd_dev_status_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t 
         }
 
         if ((dp_state == true)) { // && (dm_state == true)
-            LOG_INFO("THIS IS APPLE!!!");
+            LOG_INFO("THIS IS APPLE");
             dcd->detectResult = (uint8_t)kUSB_DcdDCP;
         }
         else {
@@ -215,7 +215,7 @@ static usb_phydcd_dev_status_t USB_PHYDCD_Apple_Check(usb_phydcd_state_struct_t 
 
 static usb_phydcd_dev_status_t dcdDetectionInit(usb_phydcd_state_struct_t *dcd)
 {
-    LOG_INFO("dcdDetectionInit");
+    // LOG_INFO("dcdDetectionInit");
 
     if ((dcd->hwTick - dcd->startTime) >= 100u) {
         /* Control the charger detector (EN_B)
@@ -482,18 +482,18 @@ static usb_phydcd_dev_status_t dcdSecondaryDetection(usb_phydcd_state_struct_t *
          */
         usbLoopbackRegSet(dcd, CLEAR, USB_ANALOG_LOOPBACK_UTMI_TESTSTART_MASK);
 
-        /* Gate Test Clocks. (CLKGATE)
-         * 		Clear to 0 for running clocks.
-         * 		Set to 1 to gate clocks. Set this to save power while the USB is not actively being used
-         */
-        usbPhyDebugRegSet(dcd, SET, USBPHY_DEBUG_CLR_CLKGATE_MASK);
-
         /* (HSTPULLDOWN)
          * Set bit 3 to 1 to pull down 15-KOhm on USB_DP line.
          * Set bit 2 to 1 to pull down 15-KOhm on USB_DM line.
          * Clear to 0 to disable.
          */
         usbPhyDebugRegSet(dcd, CLEAR, USB_DCD_SECONDARY_DETECTION_PULL_DOWN_CONFIG);
+
+        /* Gate Test Clocks. (CLKGATE)
+         * 		Clear to 0 for running clocks.
+         * 		Set to 1 to gate clocks. Set this to save power while the USB is not actively being used
+         */
+        usbPhyDebugRegSet(dcd, SET, USBPHY_DEBUG_CLR_CLKGATE_MASK);
 
         /* Set new state start time */
         dcd->startTime = dcd->hwTick;
